@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.wecapslabs.openfire.plugin</groupId>
   <artifactId>apns</artifactId>
-  <version>1.0.0</version>
+  <version>1.1.0</version>
   <packaging>openfire-plugin</packaging>
   <name>APNS Service</name>
   <description>openfire-apns-plugin is used to integrate Apple Push Notification Service to Openfire.</description>
@@ -21,7 +21,7 @@
     <dependency>
       <groupId>org.igniterealtime.openfire</groupId>
       <artifactId>openfire</artifactId>
-      <version>3.8.2</version>
+      <version>3.9.3</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -44,6 +44,11 @@
       <groupId>commons-io</groupId>
       <artifactId>commons-io</artifactId>
       <version>2.4</version>
+    </dependency>
+    <dependency>
+        <groupId>com.notnoop.apns</groupId>
+        <artifactId>apns</artifactId>
+        <version>0.2.3</version>
     </dependency>
   </dependencies>
   <build>

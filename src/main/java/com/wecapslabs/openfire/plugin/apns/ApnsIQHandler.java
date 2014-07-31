@@ -44,7 +44,13 @@ public class ApnsIQHandler extends IQHandler {
 
             String token = receivedPacket.element("query").elementText("token");
             if (token.length() == 64) {
-                if (dbManager.insertDeviceToken(from, token)) {
+                boolean success = false;
+                if (dbManager.getDeviceToken(from) == null) {
+                    success = dbManager.insertDeviceToken(from, token);
+                } else {
+                    success = dbManager.updateDeviceToken(from, token);
+                }
+                if (success) {
                     Element responseElement = DocumentHelper.createElement(QName.get("query", "urn:xmpp:apns"));
                     responseElement.addElement("token").setText(token);
 

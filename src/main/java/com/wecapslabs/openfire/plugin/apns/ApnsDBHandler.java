@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.ArrayList;
 
 import org.jivesoftware.database.DbConnectionManager;
+import org.jivesoftware.openfire.muc.MUCRole;
 
 import org.xmpp.packet.JID;
 
@@ -20,9 +21,11 @@ public class ApnsDBHandler {
     private static final Logger Log = LoggerFactory.getLogger(ApnsPlugin.class);
 
     private static final String LOAD_TOKEN = "SELECT devicetoken FROM ofAPNS WHERE JID=?";
-    private static final String INSERT_TOKEN = "INSERT INTO ofAPNS VALUES(?, ?) ON DUPLICATE KEY UPDATE devicetoken = ?";
-    private static final String DELETE_TOKEN = "DELETE FROM ofAPNS WHERE devicetoken = ?";
-    private static final String LOAD_TOKENS = "SELECT devicetoken FROM ofAPNS LEFT JOIN ofMucMember ON ofAPNS.JID = ofMucMember.jid LEFT JOIN ofMucRoom ON ofMucMember.roomID = ofMucRoom.roomID WHERE ofMucRoom.name = ?";
+    private static final String INSERT_TOKEN = "INSERT INTO ofAPNS VALUES(?, ?)";
+    private static final String UPDATE_TOKEN = "UPDATE ofAPNS SET deviceToken = ? WHERE JID = ?";
+    private static final String DELETE_TOKEN = "DELETE FROM ofAPNS WHERE LOWER(devicetoken) = LOWER(?)";
+    private static final String LOAD_ROOM_MEMBER_TOKENS = "SELECT devicetoken FROM ofAPNS LEFT JOIN ofMucMember ON ofAPNS.JID = ofMucMember.jid WHERE ofMucMember.roomid = ?";
+    private static final String LOAD_ROOM_OWNER_TOKENS = "SELECT devicetoken FROM ofAPNS LEFT JOIN ofMucAffiliation ON ofAPNS.JID = ofMucAffiliation.jid WHERE ofMucAffiliation.roomid = ? AND ofMucAffiliation.affiliation = ?";
 
     public boolean insertDeviceToken(JID targetJID, String token) {
         Connection con = null;
@@ -34,7 +37,6 @@ public class ApnsDBHandler {
             pstmt = con.prepareStatement(INSERT_TOKEN);
             pstmt.setString(1, targetJID.toBareJID());
             pstmt.setString(2, token);
-            pstmt.setString(3, token);
             pstmt.executeUpdate();
             pstmt.close();
 
@@ -57,6 +59,29 @@ public class ApnsDBHandler {
             con = DbConnectionManager.getConnection();
             pstmt = con.prepareStatement(DELETE_TOKEN);
             pstmt.setString(1, token);
+            pstmt.executeUpdate();
+            pstmt.close();
+
+            isCompleted = true;
+        } catch (SQLException sqle) {
+            Log.error(sqle.getMessage(), sqle);
+            isCompleted = false;
+        } finally {
+            DbConnectionManager.closeConnection(rs, pstmt, con);
+        }
+        return isCompleted;
+    }
+
+    public boolean updateDeviceToken(JID targetJID, String token) {
+        Connection con = null;
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+        boolean isCompleted = false;
+        try {
+            con = DbConnectionManager.getConnection();
+            pstmt = con.prepareStatement(UPDATE_TOKEN);
+            pstmt.setString(1, token);
+            pstmt.setString(2, targetJID.toBareJID());
             pstmt.executeUpdate();
             pstmt.close();
 
@@ -95,7 +120,13 @@ public class ApnsDBHandler {
         return returnToken;
     }
 
-    public List<String> getDeviceTokens(String roomName) {
+    public List<String> getDeviceTokensForRoom(long roomID) {
+        List<String> tokens = getRoomMemberTokens(roomID);
+        tokens.addAll(getRoomOwnerTokens(roomID));
+        return tokens;
+    }
+
+    private List<String> getRoomMemberTokens(long roomID) {
         Connection con = null;
         PreparedStatement pstmt = null;
         ResultSet rs = null;
@@ -103,11 +134,36 @@ public class ApnsDBHandler {
         List<String> returnTokens = new ArrayList<String>();
         try {
             con = DbConnectionManager.getConnection();
-            pstmt = con.prepareStatement(LOAD_TOKENS);
-            pstmt.setString(1, roomName);
+            pstmt = con.prepareStatement(LOAD_ROOM_MEMBER_TOKENS);
+            pstmt.setLong(1, roomID);
             rs = pstmt.executeQuery();
             while (rs.next()) {
-            	returnTokens.add(rs.getString(1));
+                returnTokens.add(rs.getString(1));
+            }
+            rs.close();
+            pstmt.close();
+        } catch (SQLException sqle) {
+            Log.error(sqle.getMessage(), sqle);
+        } finally {
+            DbConnectionManager.closeConnection(rs, pstmt, con);
+        }
+        return returnTokens;
+    }
+
+    private List<String> getRoomOwnerTokens(long roomID) {
+        Connection con = null;
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+
+        List<String> returnTokens = new ArrayList<String>();
+        try {
+            con = DbConnectionManager.getConnection();
+            pstmt = con.prepareStatement(LOAD_ROOM_OWNER_TOKENS);
+            pstmt.setLong(1, roomID);
+            pstmt.setInt(2, MUCRole.Affiliation.owner.getValue());
+            rs = pstmt.executeQuery();
+            while (rs.next()) {
+                returnTokens.add(rs.getString(1));
             }
             rs.close();
             pstmt.close();

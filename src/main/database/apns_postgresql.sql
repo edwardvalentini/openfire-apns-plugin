@@ -6,5 +6,5 @@ INSERT INTO ofVersion (name, version) VALUES ('apns', 0);
 CREATE TABLE ofAPNS (
 	JID VARCHAR(200) NOT NULL,
 	devicetoken CHAR(64) NOT NULL,
-  PRIMARY KEY (JID)
+	CONSTRAINT ofAPNS_pk PRIMARY KEY (JID)
 );
