@@ -1,20 +1,17 @@
 package com.wecapslabs.openfire.plugin.apns;
 
+import org.jivesoftware.database.DbConnectionManager;
+import org.jivesoftware.openfire.muc.MUCRole;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.xmpp.packet.JID;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
-import java.util.List;
 import java.util.ArrayList;
-
-import org.jivesoftware.database.DbConnectionManager;
-import org.jivesoftware.openfire.muc.MUCRole;
-
-import org.xmpp.packet.JID;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.List;
 
 public class ApnsDBHandler {
 
@@ -30,7 +27,6 @@ public class ApnsDBHandler {
     public boolean insertDeviceToken(JID targetJID, String token) {
         Connection con = null;
         PreparedStatement pstmt = null;
-        ResultSet rs = null;
         boolean isCompleted = false;
         try {
             con = DbConnectionManager.getConnection();
@@ -45,7 +41,7 @@ public class ApnsDBHandler {
             Log.error(sqle.getMessage(), sqle);
             isCompleted = false;
         } finally {
-            DbConnectionManager.closeConnection(rs, pstmt, con);
+            DbConnectionManager.closeConnection(null, pstmt, con);
         }
         return isCompleted;
     }
@@ -53,7 +49,6 @@ public class ApnsDBHandler {
     public boolean deleteDeviceToken(String token) {
         Connection con = null;
         PreparedStatement pstmt = null;
-        ResultSet rs = null;
         boolean isCompleted = false;
         try {
             con = DbConnectionManager.getConnection();
@@ -67,7 +62,7 @@ public class ApnsDBHandler {
             Log.error(sqle.getMessage(), sqle);
             isCompleted = false;
         } finally {
-            DbConnectionManager.closeConnection(rs, pstmt, con);
+            DbConnectionManager.closeConnection(null, pstmt, con);
         }
         return isCompleted;
     }
@@ -75,7 +70,6 @@ public class ApnsDBHandler {
     public boolean updateDeviceToken(JID targetJID, String token) {
         Connection con = null;
         PreparedStatement pstmt = null;
-        ResultSet rs = null;
         boolean isCompleted = false;
         try {
             con = DbConnectionManager.getConnection();
@@ -90,7 +84,7 @@ public class ApnsDBHandler {
             Log.error(sqle.getMessage(), sqle);
             isCompleted = false;
         } finally {
-            DbConnectionManager.closeConnection(rs, pstmt, con);
+            DbConnectionManager.closeConnection(null, pstmt, con);
         }
         return isCompleted;
     }
@@ -107,7 +101,7 @@ public class ApnsDBHandler {
             pstmt.setString(1, targetJID.toBareJID());
             rs = pstmt.executeQuery();
             if (rs.next()) {
-            	returnToken = rs.getString(1);
+                returnToken = rs.getString(1);
             }
             rs.close();
             pstmt.close();

@@ -1,11 +1,11 @@
 package com.wecapslabs.openfire.plugin.apns;
 
-import org.jivesoftware.openfire.IQHandlerInfo;
-import org.jivesoftware.openfire.auth.UnauthorizedException;
-import org.jivesoftware.openfire.handler.IQHandler;
 import org.dom4j.DocumentHelper;
 import org.dom4j.Element;
 import org.dom4j.QName;
+import org.jivesoftware.openfire.IQHandlerInfo;
+import org.jivesoftware.openfire.auth.UnauthorizedException;
+import org.jivesoftware.openfire.handler.IQHandler;
 import org.xmpp.packet.IQ;
 import org.xmpp.packet.JID;
 import org.xmpp.packet.PacketError;
@@ -18,7 +18,7 @@ public class ApnsIQHandler extends IQHandler {
 
     public ApnsIQHandler() {
         super("Apns IQ Handler");
-        info = new IQHandlerInfo("query","urn:xmpp:apns");
+        info = new IQHandlerInfo("query", "urn:xmpp:apns");
         dbManager = new ApnsDBHandler();
     }
 
@@ -44,7 +44,7 @@ public class ApnsIQHandler extends IQHandler {
 
             String token = receivedPacket.element("query").elementText("token");
             if (token.length() == 64) {
-                boolean success = false;
+                boolean success;
                 if (dbManager.getDeviceToken(from) == null) {
                     success = dbManager.insertDeviceToken(from, token);
                 } else {

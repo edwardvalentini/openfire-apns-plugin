@@ -1,42 +1,33 @@
 package com.wecapslabs.openfire.plugin.apns;
 
-import java.io.File;
-import java.util.List;
-import java.util.ArrayList;
-
+import com.notnoop.apns.*;
+import com.notnoop.apns.internal.Utilities;
+import com.notnoop.exceptions.ApnsDeliveryErrorException;
+import com.notnoop.exceptions.NetworkIOException;
+import org.jivesoftware.openfire.IQRouter;
 import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.container.Plugin;
 import org.jivesoftware.openfire.container.PluginManager;
-import org.jivesoftware.openfire.session.Session;
 import org.jivesoftware.openfire.handler.IQHandler;
-import org.jivesoftware.openfire.IQRouter;
 import org.jivesoftware.openfire.interceptor.InterceptorManager;
 import org.jivesoftware.openfire.interceptor.PacketInterceptor;
 import org.jivesoftware.openfire.interceptor.PacketRejectedException;
+import org.jivesoftware.openfire.muc.MUCRoom;
+import org.jivesoftware.openfire.muc.MultiUserChatService;
+import org.jivesoftware.openfire.session.Session;
 import org.jivesoftware.openfire.user.User;
 import org.jivesoftware.openfire.user.UserManager;
 import org.jivesoftware.openfire.user.UserNotFoundException;
-import org.jivesoftware.openfire.muc.MUCRoom;
-import org.jivesoftware.openfire.muc.MultiUserChatService;
-
 import org.jivesoftware.util.JiveGlobals;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.xmpp.packet.JID;
 import org.xmpp.packet.Message;
 import org.xmpp.packet.Packet;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.notnoop.apns.APNS;
-import com.notnoop.apns.ApnsService;
-import com.notnoop.apns.ApnsNotification;
-import com.notnoop.apns.PayloadBuilder;
-import com.notnoop.apns.ApnsDelegate;
-import com.notnoop.apns.DeliveryError;
-import com.notnoop.apns.internal.Utilities;
-import com.notnoop.exceptions.NetworkIOException;
-import com.notnoop.exceptions.ApnsDeliveryErrorException;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ApnsPlugin implements Plugin, PacketInterceptor, ApnsDelegate {
 
@@ -53,14 +44,16 @@ public class ApnsPlugin implements Plugin, PacketInterceptor, ApnsDelegate {
         dbManager = new ApnsDBHandler();
     }
 
+    @SuppressWarnings("unused")
     public void setCertificatePath(String certificatePath) {
         JiveGlobals.setProperty("plugin.apns.certificatePath", certificatePath);
     }
-
+    
     public String getCertificatePath() {
         return JiveGlobals.getProperty("plugin.apns.certificatePath", "/certificate.p12");
     }
 
+    @SuppressWarnings("unused")
     public void setPassword(String password) {
         JiveGlobals.setProperty("plugin.apns.password", password);
     }
@@ -69,6 +62,7 @@ public class ApnsPlugin implements Plugin, PacketInterceptor, ApnsDelegate {
         return JiveGlobals.getProperty("plugin.apns.password", "");
     }
 
+    @SuppressWarnings("unused")
     public void setBadge(String badge) {
         JiveGlobals.setProperty("plugin.apns.badge", badge);
     }
@@ -77,6 +71,7 @@ public class ApnsPlugin implements Plugin, PacketInterceptor, ApnsDelegate {
         return Integer.parseInt(JiveGlobals.getProperty("plugin.apns.badge", "1"));
     }
 
+    @SuppressWarnings("unused")
     public void setSound(String sound) {
         JiveGlobals.setProperty("plugin.apns.sound", sound);
     }
@@ -85,6 +80,7 @@ public class ApnsPlugin implements Plugin, PacketInterceptor, ApnsDelegate {
         return JiveGlobals.getProperty("plugin.apns.sound", "default");
     }
 
+    @SuppressWarnings("unused")
     public void setProduction(String production) {
         JiveGlobals.setProperty("plugin.apns.production", production);
     }
@@ -97,10 +93,10 @@ public class ApnsPlugin implements Plugin, PacketInterceptor, ApnsDelegate {
         if (apnsService == null) {
             try {
                 apnsService = APNS.newService()
-                                  .withCert(getCertificatePath(), getPassword())
-                                  .withAppleDestination(getProduction())
-                                  .withDelegate(this)
-                                  .build();
+                        .withCert(getCertificatePath(), getPassword())
+                        .withAppleDestination(getProduction())
+                        .withDelegate(this)
+                        .build();
             } catch (Exception e) {
                 Log.error(e.getMessage(), e);
             }
@@ -124,12 +120,9 @@ public class ApnsPlugin implements Plugin, PacketInterceptor, ApnsDelegate {
     }
 
     public void interceptPacket(Packet packet, Session session, boolean read, boolean processed) throws PacketRejectedException {
-
         if (isValidTargetPacket(packet, read, processed)) {
-            Packet original = packet;
-
-            if(original instanceof Message) {
-                Message receivedMessage = (Message)original;
+            if (packet instanceof Message) {
+                Message receivedMessage = (Message) packet;
                 Message.Type messageType = receivedMessage.getType();
                 if (messageType != Message.Type.chat && messageType != Message.Type.groupchat) {
                     return;
@@ -179,7 +172,7 @@ public class ApnsPlugin implements Plugin, PacketInterceptor, ApnsDelegate {
     }
 
     private boolean isValidTargetPacket(Packet packet, boolean read, boolean processed) {
-        return  !processed && read && packet instanceof Message;
+        return !processed && read && packet instanceof Message;
     }
 
     private String getUserDisplayName(String username) {
@@ -211,15 +204,17 @@ public class ApnsPlugin implements Plugin, PacketInterceptor, ApnsDelegate {
 
     public void messageSent(final ApnsNotification message, final boolean resent) {
         String deviceToken = Utilities.encodeHex(message.getDeviceToken());
-        Log.info("messageSent: Id = " + message.getIdentifier() + ", deviceToken = " + deviceToken + ", resent: " + resent);
+        Log.info("messageSent: Id = " + message.getIdentifier() +
+                ", deviceToken = " + deviceToken + ", resent: " + resent);
     }
 
     public void messageSendFailed(final ApnsNotification message, final Throwable e) {
         String deviceToken = Utilities.encodeHex(message.getDeviceToken());
-        Log.error("messageSendFailed: Id = " + message.getIdentifier() + ", deviceToken = " + deviceToken, e);
+        Log.error("messageSendFailed: Id = " + message.getIdentifier() +
+                ", deviceToken = " + deviceToken, e);
 
         if (e instanceof ApnsDeliveryErrorException) {
-            ApnsDeliveryErrorException deliveryErrorException = (ApnsDeliveryErrorException)e;
+            ApnsDeliveryErrorException deliveryErrorException = (ApnsDeliveryErrorException) e;
             if (deliveryErrorException.getDeliveryError() == DeliveryError.INVALID_TOKEN) {
                 dbManager.deleteDeviceToken(deviceToken);
             }
