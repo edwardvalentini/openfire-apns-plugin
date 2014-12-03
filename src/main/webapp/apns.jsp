@@ -17,13 +17,17 @@
         plugin.setBadge(ParamUtils.getParameter(request, "badge"));
         plugin.setSound(ParamUtils.getParameter(request, "sound"));
         plugin.setProduction(ParamUtils.getParameter(request, "production"));
+        plugin.setSendMessageBody(ParamUtils.getParameter(request, "sendMessageBody"));
+        plugin.setMessageBodyPlaceholder(ParamUtils.getParameter(request, "messageBodyPlaceholder"));
     }
 
     String certificatePath = plugin.getCertificatePath();
     String password = plugin.getPassword();
-    String badge = Integer.toString(plugin.getBadge());
     String sound = plugin.getSound();
-    String production = plugin.getProduction() ? "true" : "false";
+    int badge = plugin.getBadge();
+    boolean production = plugin.getProduction();
+    boolean sendMessageBody = plugin.getSendMessageBody();
+    String messageBodyPlaceholder = plugin.getMessageBodyPlaceholder();
 %>
 
 <html>
@@ -52,8 +56,17 @@
     <input type="text" name="sound" value="<%= sound %>" />
     <br>
 
-    <input type="radio" name="production" value="false" <%= production.equals("true") ? "" : "checked" %>>Sandbox
-    <input type="radio" name="production" value="true" <%= production.equals("true") ? "checked" : "" %>>Production
+    <input type="radio" name="production" value="false" <%= production ? "" : "checked" %>>Sandbox
+    <input type="radio" name="production" value="true" <%= production ? "checked" : "" %>>Production
+    <br>
+
+    <label for="sendMessageBody">Send message text with notification:</label>
+    <input type="radio" name="sendMessageBody" value="true" <%= sendMessageBody ? "checked" : "" %>>Yes
+    <input type="radio" name="sendMessageBody" value="false" <%= sendMessageBody ? "" : "checked" %>>No
+    <br>
+
+    <label for="messageBodyPlaceholder">Message text placeholder:</label>
+    <input type="text" name="messageBodyPlaceholder" value="<%= messageBodyPlaceholder %>" />
     <br>
 
     <input type="submit" value="Save">
