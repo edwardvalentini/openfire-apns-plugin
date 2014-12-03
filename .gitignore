@@ -1,1 +1,9 @@
 target/
+
+# Ignore Intellij Idea project files
+*.iml
+*.ipr
+.idea
+
+# Ignore MacOSX files
+.DS_Store
