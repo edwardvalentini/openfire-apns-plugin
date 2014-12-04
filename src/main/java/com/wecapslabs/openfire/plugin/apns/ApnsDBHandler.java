@@ -21,6 +21,7 @@ public class ApnsDBHandler {
     private static final String INSERT_TOKEN = "INSERT INTO ofAPNS VALUES(?, ?)";
     private static final String UPDATE_TOKEN = "UPDATE ofAPNS SET deviceToken = ? WHERE JID = ?";
     private static final String DELETE_TOKEN = "DELETE FROM ofAPNS WHERE LOWER(devicetoken) = LOWER(?)";
+    private static final String DELETE_BY_JID = "DELETE FROM ofAPNS WHERE JID = ?";
     private static final String LOAD_ROOM_MEMBER_TOKENS = "SELECT devicetoken FROM ofAPNS LEFT JOIN ofMucMember ON ofAPNS.JID = ofMucMember.jid WHERE ofMucMember.roomid = ?";
     private static final String LOAD_ROOM_OWNER_TOKENS = "SELECT devicetoken FROM ofAPNS LEFT JOIN ofMucAffiliation ON ofAPNS.JID = ofMucAffiliation.jid WHERE ofMucAffiliation.roomid = ? AND ofMucAffiliation.affiliation = ?";
 
@@ -40,6 +41,26 @@ public class ApnsDBHandler {
         } catch (SQLException sqle) {
             Log.error(sqle.getMessage(), sqle);
             isCompleted = false;
+        } finally {
+            DbConnectionManager.closeConnection(null, pstmt, con);
+        }
+        return isCompleted;
+    }
+
+    public boolean deleteDeviceTokenByJID(JID from) {
+        Connection con = null;
+        PreparedStatement pstmt = null;
+        boolean isCompleted = false;
+        try {
+            con = DbConnectionManager.getConnection();
+            pstmt = con.prepareStatement(DELETE_BY_JID);
+            pstmt.setString(1, from.toBareJID());
+            pstmt.executeUpdate();
+            pstmt.close();
+
+            isCompleted = true;
+        } catch (SQLException e) {
+            Log.error(e.getMessage(), e);
         } finally {
             DbConnectionManager.closeConnection(null, pstmt, con);
         }
@@ -168,4 +189,5 @@ public class ApnsDBHandler {
         }
         return returnTokens;
     }
+
 }

@@ -59,6 +59,16 @@ public class ApnsIQHandler extends IQHandler {
                     result.setChildElement(packet.getChildElement().createCopy());
                     result.setError(PacketError.Condition.internal_server_error);
                 }
+            } else if (token.length() == 0) {
+                // Delete the token
+                if (dbManager.deleteDeviceTokenByJID(from)) {
+                    Element responseElement = DocumentHelper.createElement(QName.get("query", "urn:xmpp:apns"));
+                    responseElement.addElement("token");
+                    result.setChildElement(responseElement);
+                } else {
+                    result.setChildElement(packet.getChildElement().createCopy());
+                    result.setError(PacketError.Condition.internal_server_error);
+                }
             } else {
                 result.setChildElement(packet.getChildElement().createCopy());
                 result.setError(PacketError.Condition.not_acceptable);
