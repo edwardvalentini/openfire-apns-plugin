@@ -14,10 +14,10 @@ import org.jivesoftware.openfire.interceptor.InterceptorManager;
 import org.jivesoftware.openfire.interceptor.PacketInterceptor;
 import org.jivesoftware.openfire.interceptor.PacketRejectedException;
 import org.jivesoftware.openfire.muc.MUCRoom;
+import org.jivesoftware.openfire.muc.MultiUserChatManager;
 import org.jivesoftware.openfire.muc.MultiUserChatService;
 import org.jivesoftware.openfire.session.Session;
-import org.jivesoftware.openfire.user.User;
-import org.jivesoftware.openfire.user.UserManager;
+import org.jivesoftware.openfire.user.UserNameManager;
 import org.jivesoftware.openfire.user.UserNotFoundException;
 import org.jivesoftware.util.JiveGlobals;
 import org.slf4j.Logger;
@@ -34,15 +34,17 @@ public class ApnsPlugin implements Plugin, PacketInterceptor, ApnsDelegate {
 
     private static final Logger Log = LoggerFactory.getLogger(ApnsPlugin.class);
 
-    private XMPPServer xmppServer;
-    private InterceptorManager interceptorManager;
-    private ApnsDBHandler dbManager;
+    private final XMPPServer server;
+    private final InterceptorManager interceptorManager;
+    private final MultiUserChatManager mucManager;
+    private final ApnsDBHandler dbHandler;
     private ApnsService apnsService;
 
     public ApnsPlugin() {
-        xmppServer = XMPPServer.getInstance();
+        server = XMPPServer.getInstance();
         interceptorManager = InterceptorManager.getInstance();
-        dbManager = new ApnsDBHandler();
+        mucManager = server.getMultiUserChatManager();
+        dbHandler = new ApnsDBHandler();
     }
 
     @SuppressWarnings("unused")
@@ -127,7 +129,7 @@ public class ApnsPlugin implements Plugin, PacketInterceptor, ApnsDelegate {
         interceptorManager.addInterceptor(this);
 
         IQHandler myHandler = new ApnsIQHandler();
-        IQRouter iqRouter = xmppServer.getIQRouter();
+        IQRouter iqRouter = server.getIQRouter();
         iqRouter.addHandler(myHandler);
     }
 
@@ -160,7 +162,7 @@ public class ApnsPlugin implements Plugin, PacketInterceptor, ApnsDelegate {
             JID fromJID = receivedMessage.getFrom();
             JID toJID = receivedMessage.getTo();
             String username = fromJID.getNode();
-            String displayName = getUserDisplayName(username);
+            String displayName = getDisplayName(fromJID);
             List<String> deviceTokens = new ArrayList<String>();
             PayloadBuilder payloadBuilder = APNS.newPayload().badge(getBadge()).sound(getSound());
 
@@ -172,7 +174,7 @@ public class ApnsPlugin implements Plugin, PacketInterceptor, ApnsDelegate {
                 // Remove it when no more clients depend on it.
                 payloadBuilder.customField("username", username);
 
-                String token = dbManager.getDeviceToken(toJID);
+                String token = dbHandler.getDeviceToken(toJID);
                 if (token != null) {
                     deviceTokens.add(token);
                 }
@@ -191,7 +193,7 @@ public class ApnsPlugin implements Plugin, PacketInterceptor, ApnsDelegate {
                 MUCRoom room = getRoom(toJID);
                 if (room != null) {
                     roomDisplayName = room.getNaturalLanguageName();
-                    deviceTokens.addAll(dbManager.getDeviceTokensForRoom(room.getID()));
+                    deviceTokens.addAll(dbHandler.getDeviceTokensForRoom(room.getID()));
 
                     // 'roomname' custom field is now deprecated.
                     // Remove it when no more clients depend on it.
@@ -222,23 +224,22 @@ public class ApnsPlugin implements Plugin, PacketInterceptor, ApnsDelegate {
         return !processed && read && packet instanceof Message;
     }
 
-    private String getUserDisplayName(String username) {
-        User user = null;
+    private String getDisplayName(JID jid) {
+        String name = null;
         try {
-            user = UserManager.getInstance().getUser(username);
+            name = UserNameManager.getUserName(jid);
         } catch (UserNotFoundException e) {
-            Log.error("username = " + username, e);
+            Log.error("User not found: jid = " + jid, e);
         }
 
-        return user == null ? username : user.getName();
+        return name == null ? jid.getNode() : name;
     }
 
     private MUCRoom getRoom(JID roomJID) {
         String roomName = roomJID.getNode();
-        String roomDomain = roomJID.getDomain();
-        String subdomain = roomDomain.contains(".") ? roomDomain.split("\\.")[0] : roomDomain;
+        String serviceName = roomJID.getDomain().split("\\.")[0];
 
-        MultiUserChatService mucService = xmppServer.getMultiUserChatManager().getMultiUserChatService(subdomain);
+        MultiUserChatService mucService = mucManager.getMultiUserChatService(serviceName);
         if (mucService != null) {
             return mucService.getChatRoom(roomName);
         }
@@ -257,35 +258,32 @@ public class ApnsPlugin implements Plugin, PacketInterceptor, ApnsDelegate {
 
     public void messageSendFailed(final ApnsNotification message, final Throwable e) {
         String deviceToken = Utilities.encodeHex(message.getDeviceToken());
-        Log.error("messageSendFailed: Id = " + message.getIdentifier() +
-                ", deviceToken = " + deviceToken, e);
+        Log.error("messageSendFailed: Id = " + message.getIdentifier() + ", deviceToken = " + deviceToken, e);
 
         if (e instanceof ApnsDeliveryErrorException) {
             ApnsDeliveryErrorException deliveryErrorException = (ApnsDeliveryErrorException) e;
             if (deliveryErrorException.getDeliveryError() == DeliveryError.INVALID_TOKEN) {
-                dbManager.deleteDeviceToken(deviceToken);
+                dbHandler.deleteDeviceToken(deviceToken);
             }
         }
     }
 
     public void connectionClosed(final DeliveryError e, final int messageIdentifier) {
+        Log.error("connectionClosed: Id = " + messageIdentifier + ", error = " + e);
     }
 
     public void cacheLengthExceeded(final int newCacheLength) {
+        Log.info("cacheLengthExceeded: newCacheLength = " + newCacheLength);
     }
 
     public void notificationsResent(final int resendCount) {
+        Log.info("notificationsResent: resendCount = " + resendCount);
     }
 
-    /*
-     * TODO: We can use APNS Feedback service to get the list of inactive devices to delete them from the database.
-     *       Apple suggests to do that once a day.
-     *       For now we just delete deviceTokens when we receive INVALID_TOKEN(8) error after sending a message. See messageSendFailed(...).
-     */
-    //private void cleanInactiveDevices(ApnsService apnsService) throws NetworkIOException {
-    //    final Map<String, Date> inactiveDevices = svc.getInactiveDevices();
-    //    for (final Entry<String, Date> ent : inactiveDevices.entrySet()) {
-    //        System.out.println("Inactive " + ent.getKey() + " at date " + ent.getValue());
-    //    }
-    //}
+//    private void cleanInactiveDevices(ApnsService apnsService) throws NetworkIOException {
+//        final Map<String, Date> inactiveDevices = apnsService.getInactiveDevices();
+//        for (final Map.Entry<String, Date> ent : inactiveDevices.entrySet()) {
+//            System.out.println("Inactive " + ent.getKey() + " at date " + ent.getValue());
+//        }
+//    }
 }
